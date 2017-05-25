@@ -22,7 +22,7 @@ LABEL \
     org.label-schema.docker.dockerfile="/Dockerfile" \
     org.label-schema.license="Apache License 2.0" \
     org.label-schema.name="Gatling with Cassandra CQL support" \
-    org.label-schema.url="https://github.com/k8s-for-greeks/" \
+    org.label-schema.url="https://github.com/vorstella/docker-gatling-cql" \
     org.label-schema.vcs-ref=$VCS_REF \
     org.label-schema.vcs-type="Git" \
     org.label-schema.vcs-url="https://github.com/vorstella/docker-gatling-cql"
@@ -32,6 +32,16 @@ ENV \
     GATLINGCQL_SHA=3fe9321515526fcb3981b28f07a4d7849d58471293a72166d44230c754ebe73f \
     GATLINGCQL_DOWNLOAD_PATH=/gatling-cql.tar.gz \
     GATLINGCQL_EXTRACT_PATH=/gatling-cql
+
+
+# Interesting sub-directories
+#
+# user-files/
+# user-files/bodies
+# user-files/simulations
+# user-files/data
+
+VOLUME ["/opt/gatling/conf", "/opt/gatling/results", "/opt/gatling/user-files"]
 
 RUN \
     set -ex \
