@@ -12,7 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM denvazh/gatling:2.2.4
+# Gatling is a highly capable load testing tool.
+#
+# Documentation: http://gatling.io/docs/2.2.2/
+# Cheat sheet: http://gatling.io/#/cheat-sheet/2.2.2
+
+FROM openjdk:8-jdk-alpine
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -27,24 +32,41 @@ LABEL \
     org.label-schema.vcs-type="Git" \
     org.label-schema.vcs-url="https://github.com/vorstella/docker-gatling-cql"
 
-ENV \
-    GATLINGCQL_VERSION=0.0.7-alpha1 \
-    GATLINGCQL_SHA=3fe9321515526fcb3981b28f07a4d7849d58471293a72166d44230c754ebe73f \
-    GATLINGCQL_DOWNLOAD_PATH=/gatling-cql.tar.gz \
-    GATLINGCQL_EXTRACT_PATH=/gatling-cql
+# working directory for gatling
+WORKDIR /opt
 
+# gating version
+ENV GATLING_VERSION 2.2.4
 
+# create directory for gatling install
+RUN mkdir -p gatling
+
+# install gatling
+RUN apk add --update wget && \
+  mkdir -p /tmp/downloads && \
+  wget -q -O /tmp/downloads/gatling-$GATLING_VERSION.zip \
+  https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/$GATLING_VERSION/gatling-charts-highcharts-bundle-$GATLING_VERSION-bundle.zip && \
+  mkdir -p /tmp/archive && cd /tmp/archive && \
+  unzip /tmp/downloads/gatling-$GATLING_VERSION.zip && \
+  mv /tmp/archive/gatling-charts-highcharts-bundle-$GATLING_VERSION/* /opt/gatling/ && \
+  wget -O /opt/gatling/lib/GatlingCql.jar "https://github.com/mstump/GatlingCql/releases/download/0.0.7-alpha1/GatlingCql-0.0.7-SNAPSHOT.jar" && \
+  rm -rf /tmp/*
+
+# change context to gatling directory
+WORKDIR  /opt/gatling
+
+# Set directories below to be mountable from host
 # Interesting sub-directories
 #
-# user-files/
-# user-files/bodies
-# user-files/simulations
-# user-files/data
+# /opt/gatling/user-files
+# /opt/gatling/user-files/bodies
+# /opt/gatling/user-files/simulations
+# /opt/gatling/user-files/data
 
 VOLUME ["/opt/gatling/conf", "/opt/gatling/results", "/opt/gatling/user-files"]
 
-ADD "https://github.com/mstump/GatlingCql/releases/download/0.0.7-alpha1/GatlingCql-0.0.7-SNAPSHOT.jar" /
+# set environment variables
+ENV PATH /opt/gatling/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ENV GATLING_HOME /opt/gatling
 
-RUN \
-    set -ex \
-    && mv /*.jar /opt/gatling/lib/
+ENTRYPOINT ["gatling.sh"]
