@@ -17,7 +17,7 @@
 # Documentation: http://gatling.io/docs/2.2.2/
 # Cheat sheet: http://gatling.io/#/cheat-sheet/2.2.2
 
-FROM openjdk:8-jdk-alpine
+FROM openjdk:8-jdk
 
 ARG BUILD_DATE
 ARG VCS_REF
@@ -42,7 +42,7 @@ ENV GATLING_VERSION 2.2.4
 RUN mkdir -p gatling
 
 # install gatling
-RUN apk add --update wget && \
+RUN apt-get install -y wget && \
   mkdir -p /tmp/downloads && \
   wget -q -O /tmp/downloads/gatling-$GATLING_VERSION.zip \
   https://repo1.maven.org/maven2/io/gatling/highcharts/gatling-charts-highcharts-bundle/$GATLING_VERSION/gatling-charts-highcharts-bundle-$GATLING_VERSION-bundle.zip && \
