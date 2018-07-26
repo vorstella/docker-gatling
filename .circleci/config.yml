@@ -1,0 +1,157 @@
+version: 2
+jobs:
+
+  build:
+    parallelism: 1
+
+    docker:
+      image: circleci/openjdk:8-jdk-node-browsers
+
+    steps:
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      - checkout
+
+      - restore_cache:
+          keys:
+            - gradle-cache
+          paths:
+            - /home/circleci/.gradle/
+
+      - run:
+          name: Run circleci setup script
+          command: ./circleci-setup.sh
+
+      - attach_workspace:
+          at: /tmp/workspace
+
+      - run:
+          name: Copy workspace to localdir
+          command: |
+            if [[ -d /tmp/workspace/ ]]; then
+              find /tmp/workspace/ -exec cp {} /home/circleci/ \;
+            fi
+
+      - run:
+          name: Unit tests
+          command: |
+            cd /home/circleci/project/;
+            sudo sysctl -w vm.max_map_count=262144;
+            ./gradlew --build-cache test --info
+
+      - run:
+          name: Integration tests
+          command: |
+            cd /home/circleci/project/;
+            sudo sysctl -w vm.max_map_count=262144;
+            ./gradlew integration --info
+
+      - run:
+          name: Docker
+          command: cd /home/circleci/project/; ./gradlew --parallel --build-cache dockerBuild --info
+
+      - run:
+          name: DockerPush
+          command: cd /home/circleci/project/; ./gradlew --parallel --build-cache dockerPush --info
+
+      ####################################
+      # reports and build artifacts
+      ####################################
+
+      - store_artifacts:
+          path: /home/circleci/project/base/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/bash/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/gcc/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/datastax-enterprise5.1.10/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/datastax-enterprise5.1.5/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/datastax-enterprise6.0.1/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/elasticsearch6.3.1/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/cassandra2.1.18/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/cassandra2.1.20/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/cassandra2.2.12/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/cassandra3.11/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/java-openjdk/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/jetty/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/kafka1.1.0/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/nodejs/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/python2.7/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/python3/build/
+
+      - store_artifacts:
+          path: /home/circleci/project/zookeeper3.4.12/build/
+
+      - persist_to_workspace:
+          root: /home/circleci
+          paths:
+            - project/base/build
+            - project/bash/build
+
+      - save_cache:
+          key: gradle-cache
+          paths:
+            - /home/circleci/.gradle/
+
+
+workflows:
+  version: 2
+  un-tagged-build:
+    jobs:
+      - build:
+          filters:
+            tags:
+              ignore: /.*/
+
+  tagged-build:
+    jobs:
+      - build:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+
+  nightly:
+    jobs:
+      - build
+
+    triggers:
+      - schedule:
+          cron: "0 0 * * *"
+          filters:
+            branches:
+              only:
+                - master

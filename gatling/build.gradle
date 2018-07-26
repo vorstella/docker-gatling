@@ -1,0 +1,47 @@
+buildscript {
+  repositories {
+    jcenter()
+    mavenCentral()
+  }
+  dependencies {
+    classpath 'com.bmuschko:gradle-docker-plugin:3.2.8'
+  }
+}
+
+plugins {
+}
+
+apply plugin: 'com.bmuschko.docker-remote-api'
+apply from: "$rootDir/build-helpers/container-tags.gradle"
+
+import com.bmuschko.gradle.docker.tasks.image.DockerBuildImage
+
+description = ''
+
+dependencies {
+  testCompile group: 'org.slf4j', name: 'slf4j-simple', version: '1.7.25'
+  testCompile group: 'org.testng', name: 'testng', version: '6.14.2'
+}
+
+sourceSets {
+  test {
+    java.srcDirs = ['src/test/java']
+  }
+}
+
+def dockerTags = computeContainerTags("gatling", ["v2.3.1", "v2.3", "v2", "latest"]).toSet()
+
+task dockerBuild(type: DockerBuildImage) {
+  dockerFile = file("files/Dockerfile")
+  tags = dockerTags
+  inputDir = file(project.projectDir)
+  buildArgs(["FROM": "us.gcr.io/vorstella-noc-dev/java-openjdk:v8"])
+}
+
+
+task dockerPush(dependsOn: dockerBuild) {
+  doLast {
+    parallelDockerPush(dockerTags)
+  }
+}
+

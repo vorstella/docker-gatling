@@ -1,0 +1,96 @@
+buildscript {
+  repositories {
+    mavenCentral()
+    jcenter()
+  }
+
+  dependencies {
+    classpath group: 'org.codehaus.gpars', name: 'gpars', version: '1.1.0'
+  }
+}
+
+import static groovyx.gpars.GParsPool.withPool
+
+def CONTAINER_REPOS = ["asia.gcr.io/vorstella-noc-dev",
+                       "us.gcr.io/vorstella-noc-dev"]
+
+ext.getGitSha = { ->
+  def shaOut = new ByteArrayOutputStream()
+  exec {
+    commandLine 'git', 'rev-parse', '--short', 'HEAD'
+    standardOutput = shaOut
+  }
+  return shaOut.toString().trim()
+}
+
+ext.computeContainerTags = { container, versions = [], repos = CONTAINER_REPOS ->
+  def tags = []
+  def tag_name = System.env.TAG_NAME ? "$System.env.TAG_NAME" : ""
+  def build_id = System.env.BUILD_ID ? "$System.env.BUILD_ID" : ""
+  def branch_name = System.env.BRANCH_NAME ? "$System.env.BRANCH_NAME" : ""
+  def pr_name = System.env.PR_NAME ? "$System.env.PR_NAME" : ""
+  def git_version = ext.getGitSha()
+  def main_branch = "master"
+
+  if (tag_name != "") {
+    tags.add("tag-${tag_name}")
+    tags.add("tag-${tag_name}-${git_version}")
+    tags.add("tag-${tag_name}-${git_version}-${build_id}")
+  }
+
+  if (pr_name != "") {
+    tags.add("pr-${pr_name}")
+    tags.add("pr-${pr_name}-${git_version}")
+    tags.add("pr-${pr_name}-${git_version}-${build_id}")
+  }
+
+  if (tags.empty) {
+    if (branch_name == main_branch && build_id != "") {
+      tags.add("${git_version}")
+      tags.add("${git_version}-${build_id}")
+    } else if (branch_name != "" && build_id != "") {
+      tags.add("${branch_name}")
+      tags.add("${branch_name}-${git_version}")
+      tags.add("${branch_name}-${git_version}-${build_id}")
+    } else {
+      tags.add("dev-${git_version}")
+    }
+  }
+
+  def output = []
+  repos.each { repo ->
+    tags.each { tag ->
+      if (versions.size() == 0) {
+        output.add("${repo}/${container}:${tag}".toString())
+        if (branch_name == main_branch) {
+          output.add("${repo}/${container}:latest".toString())
+        }
+      } else {
+        versions.each { version ->
+          output.add("${repo}/${container}:${version}-${tag}".toString())
+          if (branch_name == main_branch) {
+            output.add("${repo}/${container}:${version}".toString())
+          }
+        }
+      }
+    }
+  }
+  return output
+}
+
+ext.parallelDockerPush = { dockerTags ->
+
+  def cores = Runtime.runtime.availableProcessors()
+  def threads = 10
+  println "Using $threads threads on $cores cores..."
+
+  withPool(threads) {
+    dockerTags.eachParallel { def tag ->
+      println("Pushing tag ${tag}")
+      exec {
+        executable "docker"
+        args "push", tag
+      }
+    }
+  }
+}
